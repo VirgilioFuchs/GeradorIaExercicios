@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo Embed — Gerador de Exercícios</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 1.5rem auto; padding: 0 1rem; }
+    fieldset { margin-bottom: 1rem; }
+    label { display: block; margin: 0.4rem 0; }
+    button[type="submit"] { margin-top: 0.5rem; }
+    .hint { color: #555; font-size: 0.9rem; }
+    .tabs { display: flex; gap: 0.5rem; margin: 1rem 0 0.5rem; }
+    .tabs button[aria-selected="true"] { font-weight: 700; }
+    .panel { border: 1px solid #ddd; padding: 0.75rem; min-height: 6rem; }
+    .panel[hidden] { display: none; }
+    .exercise { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #eee; }
+    .exercise:last-child { border-bottom: none; }
+    pre { background: #f4f4f4; padding: 0.75rem; overflow: auto; margin: 0; }
+    .error-region { margin: 1rem 0; }
+    .error-badge {
+      display: inline-block;
+      background: #fee;
+      color: #a00;
+      border: 1px solid #c88;
+      padding: 0.35rem 0.6rem;
+      margin-bottom: 0.35rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.85rem;
+    }
+    .error-msg { color: #a00; white-space: pre-wrap; }
+    .error-kind { color: #666; font-size: 0.85rem; }
+    .throwaway-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      background: #fff8e1;
+      border: 1px solid #e0c060;
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+    .throwaway-banner[hidden] { display: none; }
+    .throwaway-banner .banner-text { flex: 1; }
+    .throwaway-banner button {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0 0.25rem;
+    }
+    .soft-warn {
+      background: #fff8e1;
+      border: 1px solid #e0c060;
+      padding: 0.6rem 0.75rem;
+      margin: 0.4rem 0;
+      font-size: 0.9rem;
+      color: #555;
+      white-space: pre-wrap;
+    }
+    .soft-warn[hidden] { display: none; }
+    footer.footnote {
+      margin-top: 2rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #ddd;
+      font-size: 0.8rem;
+      color: #555;
+    }
+    .usage-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    .usage-summary { font-family: ui-monospace, monospace; font-size: 0.9rem; white-space: pre-wrap; margin: 0 0 0.75rem; }
+    .usage-events { font-family: ui-monospace, monospace; font-size: 0.8rem; max-height: 12rem; overflow: auto; }
+  </style>
+</head>
+<body>
+  <div id="throwaway-banner" class="throwaway-banner" role="status">
+    <div class="banner-text">
+      <strong>Throwaway demo</strong> — apague no fechamento da v2.0.
+      Loopback only: <code>http://[::1]:8642/</code>. Não use em staging.
+    </div>
+    <button type="button" id="banner-dismiss" aria-label="Dispensar banner">×</button>
+  </div>
+
+  <h1>Demo local Embed</h1>
+  <p class="hint">Formulário → geração → exercícios. JSON do contrato é secundário (abas).</p>
+
+  <form id="gerar-form">
+    <fieldset>
+      <legend>Contrato (GenerationRequest)</legend>
+      <label>materia <input name="materia" value="Matemática" /></label>
+      <label>topico <input name="topico" value="equação do 1º grau" required /></label>
+      <label>quantidade <input name="quantidade" type="number" min="0" max="40" value="0" /></label>
+      <label>facil <input name="facil" type="number" min="0" max="40" value="0" disabled /></label>
+      <label>medio <input name="medio" type="number" min="0" max="40" value="0" disabled /></label>
+      <label>dificil <input name="dificil" type="number" min="0" max="40" value="0" disabled /></label>
+      <div id="band-soft-warn" class="soft-warn" role="status" hidden></div>
+    </fieldset>
+    <fieldset>
+      <legend>Ambiente (só nesta demo)</legend>
+      <p class="hint">Estes controles <strong>não</strong> entram no JSON do lote (<code>GenerationRequest</code> / <code>ExerciseBatch</code>).</p>
+      <label>provider
+        <select name="provider" id="provider-select">
+          <option value="">auto</option>
+          <option value="openai">openai</option>
+          <option value="gemini">gemini</option>
+          <option value="grok">grok</option>
+        </select>
+      </label>
+      <label>model
+        <select name="model" id="model-select">
+          <option value="">default (auto)</option>
+        </select>
+      </label>
+      <label>reasoning
+        <select name="reasoning" id="reasoning-select">
+          <option value="none">none</option>
+          <option value="low">low</option>
+          <option value="medium" selected>medium</option>
+          <option value="high">high</option>
+        </select>
+      </label>
+    </fieldset>
+    <button type="submit" id="submit-btn">Gerar</button>
+  </form>
+
+  <div id="error-region" class="error-region" hidden>
+    <div id="error-badge" class="error-badge"></div>
+    <div id="error-msg" class="error-msg"></div>
+    <div id="error-kind" class="error-kind"></div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Resultados">
+    <button type="button" role="tab" id="tab-exercicios" aria-selected="true" aria-controls="panel-exercicios">Exercícios</button>
+    <button type="button" role="tab" id="tab-json" aria-selected="false" aria-controls="panel-json">JSON</button>
+    <button type="button" role="tab" id="tab-uso" aria-selected="false" aria-controls="panel-uso">Uso</button>
+  </div>
+
+  <div id="panel-exercicios" class="panel" role="tabpanel" aria-labelledby="tab-exercicios">
+    <p id="exercicios-empty" class="hint">Nenhum exercício ainda. Gere um lote para ver o resultado.</p>
+    <div id="exercicios-list"></div>
+  </div>
+  <div id="panel-json" class="panel" role="tabpanel" aria-labelledby="tab-json" hidden>
+    <pre id="json-out"></pre>
+  </div>
+  <div id="panel-uso" class="panel" role="tabpanel" aria-labelledby="tab-uso" hidden>
+    <div class="usage-toolbar">
+      <label for="usage-run-select">Sessão (run_id)</label>
+      <select id="usage-run-select">
+        <option value="">Nenhuma sessão</option>
+      </select>
+      <button type="button" id="usage-refresh">Atualizar</button>
+    </div>
+    <p id="usage-empty" class="hint">Nenhum registro de uso. Gere um lote ou verifique <code>exercise-ai/token-usage/</code>.</p>
+    <p id="usage-error" class="hint" hidden></p>
+    <pre id="usage-summary" class="usage-summary" hidden></pre>
+    <div id="usage-counts" class="hint" hidden>
+      tentativas: <span id="usage-tentativas">0</span>
+      · sucessos: <span id="usage-sucessos">0</span>
+      · erros: <span id="usage-erros">0</span>
+    </div>
+    <pre id="usage-events" class="usage-events" hidden></pre>
+  </div>
+
+  <footer class="footnote">
+    Demo throwaway — delete at v2.0 close. Somente loopback
+    <code>http://[::1]:8642/</code>. Fora do CI; sem deps novas.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

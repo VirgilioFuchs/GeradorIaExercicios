@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "exercise-ai"
+version = "2.7.0"
+description = "Gerador de exercícios de matemática via LLM (embeddable library + CLI)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "openai>=1.50.0",
+  "google-genai>=1.0.0",
+  "pydantic>=2.0.0",
+  "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+# Dist name: exercise-ai | Import name: exercise_ai
+[tool.hatch.build.targets.wheel]
+packages = ["exercise_ai"]
+# Ship JSON catalogs + skill markdown with the package tree (not force-include alone).
+include = [
+  "exercise_ai/**/*.py",
+  "exercise_ai/data/**/*.json",
+  "exercise_ai/skills/**/*.md",
+  "exercise_ai/skills/**/*.py",
+]
+exclude = [
+  "exercise_ai/exercicios-gerados/**",
+  "exercise_ai/token-usage/**",
+  "exercise_ai/token-usage-logs/**",
+  "exercise_ai/.pytest_cache/**",
+  "exercise_ai/**/__pycache__/**",
+  "exercise_ai/.env",
+  "exercise_ai/**/*.pyc",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/exercise_ai",
+  "/pyproject.toml",
+  "/README.md",
+]
+exclude = [
+  "exercise_ai/exercicios-gerados/**",
+  "exercise_ai/token-usage/**",
+  "exercise_ai/token-usage-logs/**",
+  "exercise_ai/.pytest_cache/**",
+  "exercise_ai/.env",
+]

@@ -1,0 +1,347 @@
+"""Data schemas and models for exercise generation."""
+
+from __future__ import annotations
+
+from enum import Enum
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from exercise_ai.bncc_catalog import validate_codigos
+
+
+class DificuldadeEnum(str, Enum):
+    """Níveis de dificuldade permitidos para geração de exercícios."""
+
+    FACIL = "facil"
+    MEDIO = "medio"
+    DIFICIL = "dificil"
+
+
+MAX_QUANTIDADE = 40
+
+_BAND_ORDER: tuple[DificuldadeEnum, ...] = (
+    DificuldadeEnum.FACIL,
+    DificuldadeEnum.MEDIO,
+    DificuldadeEnum.DIFICIL,
+)
+
+
+class ExerciseSpec(BaseModel):
+    """Especificação por exercício (faixa de dificuldade)."""
+
+    dificuldade: DificuldadeEnum
+    habilidade_bncc: list[str] | None = Field(
+        default=None,
+        description="Códigos BNCC opcionais por slot (modo avançado, D-13)",
+    )
+
+    @field_validator("habilidade_bncc", mode="before")
+    @classmethod
+    def _normalize_slot_bncc(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, list) and len(value) == 0:
+            return None
+        if isinstance(value, list):
+            return validate_codigos([str(v) for v in value])
+        raise ValueError("habilidade_bncc do slot deve ser lista de códigos")
+
+
+class PlanoDificuldade(BaseModel):
+    """Contagens por faixa: fácil → médio → difícil."""
+
+    facil: int = Field(0, ge=0)
+    medio: int = Field(0, ge=0)
+    dificil: int = Field(0, ge=0)
+
+    def expand(self) -> list[ExerciseSpec]:
+        """Ordena specs: todos fáceis, depois médios, depois difíceis (D-02)."""
+        specs: list[ExerciseSpec] = []
+        for band, count in (
+            (DificuldadeEnum.FACIL, self.facil),
+            (DificuldadeEnum.MEDIO, self.medio),
+            (DificuldadeEnum.DIFICIL, self.dificil),
+        ):
+            specs.extend(ExerciseSpec(dificuldade=band) for _ in range(count))
+        return specs
+
+
+def _band_summary(specs: list[ExerciseSpec]) -> list[DificuldadeEnum]:
+    """Faixas presentes, ordenadas fácil→médio→difícil (D-04)."""
+    present = {spec.dificuldade for spec in specs}
+    return [b for b in _BAND_ORDER if b in present]
+
+
+def _equal_split_specs(
+    quantidade: int, bands: list[DificuldadeEnum]
+) -> list[ExerciseSpec]:
+    """Divide quantidade igualmente; resto na última faixa (D-07, D-08)."""
+    ordered = [b for b in _BAND_ORDER if b in bands]
+    n = len(ordered)
+    if n < 2:
+        raise ValueError("equal-split requer 2+ faixas distintas")
+    base, rem = divmod(quantidade, n)
+    counts = [base] * n
+    counts[-1] += rem
+    specs: list[ExerciseSpec] = []
+    for band, count in zip(ordered, counts):
+        specs.extend(ExerciseSpec(dificuldade=band) for _ in range(count))
+    return specs
+
+
+class GenerationRequest(BaseModel):
+    """Parâmetros de entrada para solicitação de geração de exercícios."""
+
+    materia: str = Field(default="Matemática", description="Matéria dos exercícios")
+    topico: str = Field(..., min_length=1, description="Tópico específico da matéria")
+    dificuldade: DificuldadeEnum | None = Field(
+        default=None, description="Nível de dificuldade (uniforme / compat)"
+    )
+    quantidade: int = Field(
+        ...,
+        ge=1,
+        le=MAX_QUANTIDADE,
+        description="Quantidade exata de exercícios a gerar",
+    )
+    dificuldades: list[DificuldadeEnum] | None = Field(
+        default=None, description="Resumo das faixas usadas (1–3)"
+    )
+    plano: PlanoDificuldade | None = Field(
+        default=None, description="Contagens por faixa (misto)"
+    )
+    itens: list[ExerciseSpec] | None = Field(
+        default=None, description="Specs ordenados explícitos (misto)"
+    )
+    habilidade_bncc: list[str] | None = Field(
+        default=None,
+        description=(
+            "Códigos BNCC (1–N). Lista não-vazia ativa modo curricular (D-01, D-02)"
+        ),
+    )
+
+    @field_validator("topico", mode="before")
+    @classmethod
+    def _strip_nonempty_topico(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                raise ValueError("topico não pode ser vazio")
+            return stripped
+        return value
+
+    @field_validator("habilidade_bncc", mode="before")
+    @classmethod
+    def _normalize_request_bncc(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, list) and len(value) == 0:
+            return None
+        if isinstance(value, list):
+            return validate_codigos([str(v) for v in value])
+        raise ValueError("habilidade_bncc deve ser uma lista de códigos")
+
+    @model_validator(mode="after")
+    def _normalize_plan(self) -> GenerationRequest:
+        has_plano = self.plano is not None
+        has_itens = self.itens is not None
+
+        # D-03: XOR of plan sources
+        if has_plano and has_itens:
+            raise ValueError("plano e itens são mutuamente exclusivos (XOR)")
+
+        if has_plano:
+            assert self.plano is not None
+            specs = self.plano.expand()
+            if len(specs) != self.quantidade:
+                raise ValueError(
+                    f"quantidade ({self.quantidade}) deve ser igual ao tamanho do "
+                    f"plano ({len(specs)})"
+                )
+            self.itens = specs
+        elif has_itens:
+            assert self.itens is not None
+            specs = list(self.itens)
+            if len(specs) != self.quantidade:
+                raise ValueError(
+                    f"quantidade ({self.quantidade}) deve ser igual ao tamanho de "
+                    f"itens ({len(specs)})"
+                )
+        elif self.dificuldades is not None and len(
+            [b for b in _BAND_ORDER if b in self.dificuldades]
+        ) >= 2:
+            # D-07 / D-08: equal-split across listed bands; remainder to last
+            unique_ordered = [b for b in _BAND_ORDER if b in self.dificuldades]
+            if not unique_ordered:
+                raise ValueError("dificuldades não pode ser vazio")
+            specs = _equal_split_specs(self.quantidade, unique_ordered)
+            self.itens = specs
+        elif self.dificuldade is not None:
+            # D-05 / D-06: uniform via scalar — one band, qty slots for Phase 14
+            specs = [
+                ExerciseSpec(dificuldade=self.dificuldade)
+                for _ in range(self.quantidade)
+            ]
+            # Keep itens None so uniform stays distinguishable from mixed
+        elif self.dificuldades is not None and len(self.dificuldades) == 1:
+            band = self.dificuldades[0]
+            specs = [ExerciseSpec(dificuldade=band) for _ in range(self.quantidade)]
+            if self.dificuldade is None:
+                self.dificuldade = band
+        elif self.dificuldades is not None and len(self.dificuldades) == 0:
+            raise ValueError("dificuldades não pode ser vazio")
+        else:
+            raise ValueError(
+                "informe dificuldade (uniforme), dificuldades, plano ou itens"
+            )
+
+        object.__setattr__(self, "_ordered_specs", specs)
+
+        # D-04: band summary fácil→médio→difícil among present
+        summary = _band_summary(specs)
+        self.dificuldades = summary
+
+        # Prompt compat: scalar dificuldade = first band when missing
+        if self.dificuldade is None:
+            self.dificuldade = summary[0]
+
+        return self
+
+    @property
+    def itens_ordenados(self) -> list[ExerciseSpec]:
+        """Specs ordenados pós-normalização (sempre len == quantidade)."""
+        cached: list[ExerciseSpec] | None = getattr(self, "_ordered_specs", None)
+        if cached is not None:
+            return cached
+        if self.itens is not None:
+            return list(self.itens)
+        if self.dificuldade is not None:
+            return [
+                ExerciseSpec(dificuldade=self.dificuldade)
+                for _ in range(self.quantidade)
+            ]
+        return []
+
+
+class Exercise(BaseModel):
+    """Estrutura de um exercício individual."""
+
+    enunciado: str = Field(..., description="Texto do enunciado do exercício")
+    resposta: str = Field(..., description="Resposta correta ou solução direta")
+    explicacao: str = Field(..., description="Explicação passo a passo da resolução")
+    dificuldade: DificuldadeEnum = Field(
+        ..., description="Faixa de dificuldade ecoada (D-09)"
+    )
+
+
+class LlmExerciseBatch(BaseModel):
+    """Schema for LLM Structured Outputs — no BNCC fields (D-11)."""
+
+    exercicios: list[Exercise] = Field(..., description="Lista de exercícios gerados")
+    dificuldades: list[DificuldadeEnum] = Field(
+        ...,
+        description=(
+            "Resumo das faixas únicas usadas no lote (D-10): comprimento 1–3, "
+            "ordem fácil→médio→difícil; NÃO uma entrada por exercício"
+        ),
+    )
+
+
+class ExerciseBatch(LlmExerciseBatch):
+    """Lote público: LLM fields + pipeline-attached BNCC echo (D-10, D-11).
+
+    Optional ``template_id`` / ``version`` are pipeline-only (D-04) — never on
+    ``LlmExerciseBatch`` Structured Outputs schema.
+    """
+
+    habilidades_bncc: list[str] | None = Field(
+        default=None,
+        description="Echo BNCC anexado pós-parse (pipeline); omitir quando vazio",
+    )
+    template_id: str | None = Field(
+        default=None,
+        description="Item-model id anexado pelo pipeline AIG (não LLM)",
+    )
+    version: str | None = Field(
+        default=None,
+        description="Item-model version anexada pelo pipeline AIG (não LLM)",
+    )
+
+
+def resolve_bncc_codes(request: GenerationRequest) -> list[str] | None:
+    """Effective BNCC codes: slot-union (advanced) else global list (simple)."""
+    slot_codes: list[str] = []
+    seen: set[str] = set()
+    for spec in request.itens_ordenados:
+        if not spec.habilidade_bncc:
+            continue
+        for code in spec.habilidade_bncc:
+            if code not in seen:
+                seen.add(code)
+                slot_codes.append(code)
+    if slot_codes:
+        return slot_codes
+    if request.habilidade_bncc:
+        return list(request.habilidade_bncc)
+    return None
+
+
+def attach_bncc_echo(
+    batch: ExerciseBatch, request: GenerationRequest
+) -> ExerciseBatch:
+    """Attach BNCC echo from request truth after validate/plan echo (D-10..D-12).
+
+    Simple mode: global ``request.habilidade_bncc``.
+    Advanced: deterministic union of per-slot codes when any slot carries them.
+    Never trusts LLM-supplied BNCC — strips any model value first.
+    Preserves pipeline template meta (``template_id`` / ``version``).
+    """
+    echo = resolve_bncc_codes(request)
+
+    # D-11: never keep model-supplied BNCC; pipeline is authority
+    if echo is None:
+        if batch.habilidades_bncc is None:
+            return batch
+        return ExerciseBatch(
+            exercicios=batch.exercicios,
+            dificuldades=batch.dificuldades,
+            habilidades_bncc=None,
+            template_id=batch.template_id,
+            version=batch.version,
+        )
+
+    return ExerciseBatch(
+        exercicios=batch.exercicios,
+        dificuldades=batch.dificuldades,
+        habilidades_bncc=echo,
+        template_id=batch.template_id,
+        version=batch.version,
+    )
+
+
+def verify_plan_echo(batch: ExerciseBatch, request: GenerationRequest) -> None:
+    """Compara dificuldade de cada exercício ao slot ordenado e o resumo do batch (D-11, D-07).
+
+    Resumo do batch: compara o conjunto canônico (únicas, fácil→médio→difícil).
+    Padding LLM tipo ``['medio','medio']`` vs ``['medio']`` é aceito; conjunto
+    errado (ex. falta ``medio``) ainda falha.
+    """
+    expected = [s.dificuldade for s in request.itens_ordenados]
+    if len(batch.exercicios) != len(expected):
+        raise ValueError(
+            f"tamanho do batch ({len(batch.exercicios)}) != slots do plano ({len(expected)})"
+        )
+    for i, (ex, band) in enumerate(zip(batch.exercicios, expected)):
+        if ex.dificuldade != band:
+            raise ValueError(
+                f"echo mismatch no slot {i}: esperado {band.value}, "
+                f"obtido {ex.dificuldade.value}"
+            )
+    expected_summary = list(request.dificuldades or [])
+    got_summary = [b for b in _BAND_ORDER if b in batch.dificuldades]
+    if got_summary != expected_summary:
+        raise ValueError(
+            f"resumo dificuldades diverge: esperado "
+            f"{[b.value for b in expected_summary]}, "
+            f"obtido {[b.value for b in batch.dificuldades]} "
+            f"(canônico {[b.value for b in got_summary]})"
+        )

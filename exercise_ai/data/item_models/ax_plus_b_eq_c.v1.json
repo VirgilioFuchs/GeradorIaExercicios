@@ -1,0 +1,14 @@
+{
+  "id": "ax_plus_b_eq_c",
+  "version": "1",
+  "status": "approved",
+  "form": "a*x+b=c",
+  "params": {
+    "a": {"type": "int", "min": 2, "max": 10},
+    "b": {"type": "int", "min": 1, "max": 20},
+    "s": {"type": "int", "min": 1, "max": 20}
+  },
+  "habilidades_bncc": ["EF07MA18"],
+  "generator_id": "aig_axb.v1",
+  "solver_id": "phase27.check_math_batch"
+}

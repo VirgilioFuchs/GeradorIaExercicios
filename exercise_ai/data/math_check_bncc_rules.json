@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "codes": {
+    "EF06MA14": {
+      "year": 6,
+      "domain": "N",
+      "cluster": "primeiro_grau",
+      "rules": ["linear_univariate", "domain_literals", "profile_1grau"]
+    },
+    "EF07MA13": {
+      "year": 7,
+      "domain": "Z",
+      "cluster": "primeiro_grau",
+      "rules": ["linear_univariate", "domain_literals", "profile_1grau", "variable_vs_unknown"]
+    },
+    "EF07MA18": {
+      "year": 7,
+      "domain": "Z",
+      "cluster": "primeiro_grau",
+      "rules": ["linear_univariate", "domain_literals", "profile_1grau"]
+    }
+  }
+}
