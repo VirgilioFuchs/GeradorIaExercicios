@@ -1,56 +1,50 @@
-# Demo local Embed (throwaway)
+# Interface local do GeradorIaExercicios
 
-Throwaway stdlib demo that consumes the Phase 11 embed contract (`generate_batch`)
-so operators can see form → generation → rendered exercises + contract JSON.
+Uma interface no navegador para preencher os parâmetros, gerar exercícios e consultar o JSON retornado pelo gerador.
 
-## Expiry / delete-at-close
+## Instalação e execução
 
-This tree is **throwaway**. Delete `demo/` at **v2.0 close** — do not productize
-into a real HTTP API, do not promote to staging, and do not add it to CI.
+Na raiz do repositório, ative seu ambiente virtual e instale o pacote:
 
-## Run
+```bash
+python -m pip install -e .
+```
 
-From the repository root:
+Para gerar pela interface, configure a chave de OpenAI, Gemini ou Grok em `.env` na raiz ou em `exercise_ai/.env`. Consulte as variáveis e os passos para Windows, Linux e macOS no [README principal](../README.md#geração-com-ia).
 
 ```bash
 python demo/serve.py
 ```
 
-Then open the literal IPv6 loopback URL (bracketed form — do **not** substitute
-an IPv4-first hostname alias such as `localhost`):
+Abra **[http://[::1]:8642/](http://[::1]:8642/)**. Para encerrar, pressione `Ctrl+C` no terminal.
 
-**http://[::1]:8642/**
+## O que experimentar
 
-## Loopback-only bind
+1. Preencha o tópico e a quantidade de exercícios (até 40).
+2. Distribua essa quantidade entre fáceis, médios e difíceis.
+3. Escolha provedor, modelo e nível de raciocínio quando suportado.
+4. Gere e consulte as abas **Exercícios** e **JSON**.
+5. Abra **Uso** para consultar registros locais de sessões, tokens e estimativas de custo quando disponíveis.
 
-The server binds **`[::1]:8642`** only and refuses non-loopback hosts.
+A seleção de modelos usa um catálogo local, sem consultar o provedor. Nem todo modelo listado estará disponível para sua conta. As estimativas locais de custo não substituem a cobrança do provedor.
 
-Quick check that nothing is listening on a wildcard:
+A interface não possui campo de habilidades BNCC. Para testar a geração local sem chave, siga o [exemplo offline](../README.md#experimente-sem-chave-de-api) pela CLI.
+
+## Funcionamento local
+
+O servidor escuta somente em **`[::1]:8642`**, o endereço de loopback IPv6 do seu computador. Use a URL com colchetes acima. Se IPv6 estiver desabilitado, habilite-o para usar a interface ou utilize a CLI.
+
+As chamadas de geração são sequenciais: um pedido adicional durante uma geração recebe HTTP 409. A interface preserva o último lote bem-sucedido ao mostrar um erro.
+
+Essa demonstração foi feita para uso local; ela não é um servidor de produção ou uma API para exposição na internet. Não há autenticação de usuários ou suporte a implantação pública nessa interface.
+
+As rotas de consulta de uso leem arquivos em `exercise_ai/token-usage/`. Não compartilhe esses registros sem revisar o conteúdo. Mantenha `.env` e chaves fora dos commits.
+
+## Testes
+
+Os testes usam mocks e arquivos de exemplo, sem consumir APIs:
 
 ```bash
-netstat -an | findstr 8642
+python -m pip install -e ".[dev]"
+python -m pytest demo/tests -q
 ```
-
-Expect a listener on `[::1]:8642` (or equivalent IPv6 loopback), **not** `0.0.0.0:8642`
-or `*:8642`.
-
-## Not for staging
-
-Loopback-only, Host/Origin allowlist, sequential Lock → HTTP 409. This is a lab
-screen-share surface — **not** a staging or production service.
-
-## No CI / no new deps
-
-- Outside GitHub Actions (`pytest exercise-ai -q` remains the CI command).
-- Stdlib only for the HTTP surface; no new pip/npm dependencies for this demo.
-- Offline guards/UI marker tests live under `demo/tests/` for local use:
-  `pytest demo/tests -q`.
-
-## Safety
-
-Never render stderr diagnostics or `.env` secret values in the page. Errors show
-typed class / message / kind only.
-
-The **Uso** tab reads local NDJSON under `exercise-ai/token-usage/` via
-`GET /usage/sessions` and `GET /usage/session` — no API keys or prompts on the
-page. Outside CI; restart `python demo/serve.py` if new routes are missing.

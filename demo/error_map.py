@@ -2,16 +2,9 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Any
 
-_EXERCISE_AI = Path(__file__).resolve().parents[1] / "exercise-ai"
-_ea = str(_EXERCISE_AI)
-if _ea not in sys.path:
-    sys.path.insert(0, _ea)
-
-from service import ConfigError, GenerationFailedError, InvalidRequestError  # noqa: E402
+from exercise_ai.service import ConfigError, GenerationFailedError, InvalidRequestError
 
 
 def error_payload(exc: BaseException) -> dict[str, Any]:

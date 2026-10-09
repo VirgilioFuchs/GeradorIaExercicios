@@ -7,14 +7,13 @@ from pathlib import Path
 
 DEMO_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = DEMO_DIR.parent
-EXERCISE_AI = REPO_ROOT / "exercise-ai"
-for path in (DEMO_DIR, EXERCISE_AI):
+for path in (DEMO_DIR,):
     s = str(path)
     if s not in sys.path:
         sys.path.insert(0, s)
 
 from error_map import error_payload  # noqa: E402
-from service import ConfigError, GenerationFailedError, InvalidRequestError  # noqa: E402
+from exercise_ai.service import ConfigError, GenerationFailedError, InvalidRequestError  # noqa: E402
 
 
 def test_config_error_shape() -> None:

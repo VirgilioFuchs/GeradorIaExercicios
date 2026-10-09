@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Demo Embed — Gerador de Exercícios</title>
+  <title>GeradorIaExercicios — Demonstração local</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 1.5rem auto; padding: 0 1rem; }
     fieldset { margin-bottom: 1rem; }
@@ -75,14 +75,14 @@
 <body>
   <div id="throwaway-banner" class="throwaway-banner" role="status">
     <div class="banner-text">
-      <strong>Throwaway demo</strong> — apague no fechamento da v2.0.
-      Loopback only: <code>http://[::1]:8642/</code>. Não use em staging.
+      <strong>Demonstração local</strong> — disponível somente neste computador.
+      Endereço: <code>http://[::1]:8642/</code>. Use a CLI para o exemplo sem chave.
     </div>
     <button type="button" id="banner-dismiss" aria-label="Dispensar banner">×</button>
   </div>
 
-  <h1>Demo local Embed</h1>
-  <p class="hint">Formulário → geração → exercícios. JSON do contrato é secundário (abas).</p>
+  <h1>GeradorIaExercicios</h1>
+  <p class="hint">Escolha os parâmetros e gere exercícios com resposta e explicação. Consulte o resultado também em JSON.</p>
 
   <form id="gerar-form">
     <fieldset>
@@ -162,8 +162,8 @@
   </div>
 
   <footer class="footnote">
-    Demo throwaway — delete at v2.0 close. Somente loopback
-    <code>http://[::1]:8642/</code>. Fora do CI; sem deps novas.
+    Demonstração local em
+    <code>http://[::1]:8642/</code>. As chamadas de IA utilizam sua chave e podem gerar cobrança.
   </footer>
 
   <script src="app.js"></script>

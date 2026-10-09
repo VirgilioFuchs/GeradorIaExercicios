@@ -7,6 +7,8 @@ name = "exercise-ai"
 version = "2.7.0"
 description = "Gerador de exercícios de matemática via LLM (embeddable library + CLI)"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
   "openai>=1.50.0",
@@ -45,6 +47,7 @@ include = [
   "/exercise_ai",
   "/pyproject.toml",
   "/README.md",
+  "/LICENSE",
 ]
 exclude = [
   "exercise_ai/exercicios-gerados/**",

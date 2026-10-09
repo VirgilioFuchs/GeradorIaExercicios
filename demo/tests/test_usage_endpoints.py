@@ -14,8 +14,7 @@ import pytest
 
 DEMO_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = DEMO_DIR.parent
-EXERCISE_AI = REPO_ROOT / "exercise-ai"
-for path in (DEMO_DIR, EXERCISE_AI):
+for path in (DEMO_DIR,):
     s = str(path)
     if s not in sys.path:
         sys.path.insert(0, s)

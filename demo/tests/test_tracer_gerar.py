@@ -15,15 +15,14 @@ import pytest
 
 DEMO_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = DEMO_DIR.parent
-EXERCISE_AI = REPO_ROOT / "exercise-ai"
-for path in (DEMO_DIR, EXERCISE_AI):
+for path in (DEMO_DIR,):
     s = str(path)
     if s not in sys.path:
         sys.path.insert(0, s)
 
 import serve  # noqa: E402
-from models import DificuldadeEnum, Exercise, ExerciseBatch  # noqa: E402
-from service import ConfigError  # noqa: E402
+from exercise_ai.models import DificuldadeEnum, Exercise, ExerciseBatch  # noqa: E402
+from exercise_ai.service import ConfigError  # noqa: E402
 
 
 @pytest.fixture()

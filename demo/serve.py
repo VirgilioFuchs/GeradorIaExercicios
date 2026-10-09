@@ -1,4 +1,4 @@
-"""Local throwaway demo server: POST /gerar → generate_batch on [::1]:8642."""
+"""Local demonstration server: POST /gerar → generate_batch on [::1]:8642."""
 
 from __future__ import annotations
 
@@ -18,11 +18,7 @@ from pydantic import ValidationError
 
 DEMO_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DEMO_DIR.parent
-EXERCISE_AI = REPO_ROOT / "exercise-ai"
-
-_ea = str(EXERCISE_AI)
-if _ea not in sys.path:
-    sys.path.insert(0, _ea)
+EXERCISE_AI = REPO_ROOT / "exercise_ai"
 
 _demo = str(DEMO_DIR)
 if _demo not in sys.path:
@@ -30,14 +26,14 @@ if _demo not in sys.path:
 
 from error_map import error_payload  # noqa: E402
 from guards import assert_loopback, check_post_headers, lock_busy_response  # noqa: E402
-from models import GenerationRequest  # noqa: E402
-from service import (  # noqa: E402
+from exercise_ai.models import GenerationRequest  # noqa: E402
+from exercise_ai.service import (  # noqa: E402
     ConfigError,
     GenerationFailedError,
     InvalidRequestError,
     generate_batch,
 )
-from token_usage.collector import TOKEN_USAGE_DIR  # noqa: E402
+from exercise_ai.token_usage.collector import TOKEN_USAGE_DIR  # noqa: E402
 
 HOST = "::1"
 PORT = 8642
@@ -49,7 +45,7 @@ _DAY_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _INDISPONIVEL = "indisponível"
 
 _GEN_LOCK = threading.Lock()
-# Injectable for tests; default is exercise-ai/token-usage/.
+# Injectable for tests; default is exercise_ai/token-usage/.
 _USAGE_DIR: Path = TOKEN_USAGE_DIR
 
 
@@ -270,7 +266,7 @@ def _restore_scoped_env(snapshot: dict[str, Any]) -> None:
 
 def _models_payload() -> dict[str, Any]:
     """Generation fallback lists + per-model reasoning for the demo picker."""
-    from model_catalog import (
+    from exercise_ai.model_catalog import (
         DEFAULT_GEMINI_MODEL,
         DEFAULT_GROK_MODEL,
         DEFAULT_OPENAI_MODEL,
@@ -278,7 +274,7 @@ def _models_payload() -> dict[str, Any]:
         GROK_MODEL_FALLBACKS,
         OPENAI_MODEL_FALLBACKS,
     )
-    from reasoning import REASONING_LEVELS, supported_reasoning_levels
+    from exercise_ai.reasoning import REASONING_LEVELS, supported_reasoning_levels
 
     def _entries(provider: str, models: tuple[str, ...]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
@@ -399,8 +395,8 @@ class DemoHandler(SimpleHTTPRequestHandler):
             reasoning = body.get("reasoning")
             model = body.get("model")
 
-            from reasoning import assert_reasoning_compatible
-            from service import ConfigError as SvcConfigError
+            from exercise_ai.reasoning import assert_reasoning_compatible
+            from exercise_ai.service import ConfigError as SvcConfigError
 
             prov_raw = provider if isinstance(provider, str) else ""
             model_raw = model if isinstance(model, str) else ""
@@ -508,7 +504,7 @@ def create_server(
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
-    # Multi-path .env: repo root then exercise-ai/
+    # Multi-path .env: repo root then exercise_ai/
     load_dotenv(REPO_ROOT / ".env")
     load_dotenv(EXERCISE_AI / ".env")
 

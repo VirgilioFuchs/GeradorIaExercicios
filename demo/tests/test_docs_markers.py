@@ -1,4 +1,4 @@
-"""Fail-closed content assertions for demo anti-accretion docs (Plan 12-02 Task 2)."""
+"""Check the public setup paths and local demonstration limits."""
 
 from __future__ import annotations
 
@@ -9,22 +9,24 @@ DEMO_README = REPO_ROOT / "demo" / "README.md"
 ROOT_README = REPO_ROOT / "README.md"
 
 
-def test_demo_readme_anti_accretion_pack() -> None:
+def test_demo_readme_setup_and_local_limits() -> None:
     text = DEMO_README.read_text(encoding="utf-8")
     for needle in (
-        "delete",
-        "[::1]:8642",
-        "netstat",
-        "CI",
+        "python -m pip install -e .",
+        "python demo/serve.py",
+        "http://[::1]:8642/",
+        "IPv6",
+        "HTTP 409",
+        "servidor de produção",
+        "../README.md",
     ):
-        assert needle in text, f"missing marker in demo/README.md: {needle!r}"
-    assert "http://[::1]:8642/" in text
-    assert "python demo/serve.py" in text
+        assert needle in text, f"missing instruction in demo/README.md: {needle!r}"
 
 
-def test_root_readme_embed_pointer() -> None:
+def test_root_readme_demo_and_offline_example() -> None:
     text = ROOT_README.read_text(encoding="utf-8")
-    assert "demo/" in text, "root README missing demo/ pointer"
-    assert "[::1]:8642" in text, "root README missing loopback URL"
-    lowered = text.lower()
-    assert "delete" in lowered, "root README missing delete/expiry note"
+    assert "(demo/README.md)" in text
+    assert "http://[::1]:8642/" in text
+    assert "--habilidade-bncc EF07MA18 --quantidade 1 --out exemplo.json" in text
+    assert "[licença MIT](LICENSE)" in text
+    assert (REPO_ROOT / "LICENSE").is_file()
